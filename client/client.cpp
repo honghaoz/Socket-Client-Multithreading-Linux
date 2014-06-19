@@ -1,3 +1,10 @@
+//
+//  Client.cpp
+//  Client for title-case
+//
+//  Created by Zhang Honghao on 6/17/14.
+//  CS 454(654) A2
+//
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,30 +17,12 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <iostream>
-//#include <vector>
 #include <fcntl.h>
 
 struct timeval should_fire_time = timeval();
 pthread_mutex_t mutex;
 
 static int sock;
-
-void setnonblocking(int sock)
-{
-	int opts;
-    
-	opts = fcntl(sock,F_GETFL);
-	if (opts < 0) {
-		perror("fcntl(F_GETFL)");
-		exit(EXIT_FAILURE);
-	}
-	opts = (opts | O_NONBLOCK);
-	if (fcntl(sock,F_SETFL,opts) < 0) {
-		perror("fcntl(F_SETFL)");
-		exit(EXIT_FAILURE);
-	}
-	return;
-}
 
 void* send_request(void *t) {
     char *message = (char *)t;
@@ -64,7 +53,7 @@ void* send_request(void *t) {
     uint32_t string_length = (uint32_t)(strlen(message) + 1);
     uint32_t network_byte_order = htonl(string_length);
     
-    printf("%u:%s\n", string_length, message);
+//    printf("%u:%s\n", string_length, message);
     
     long response_result;
     // Send string length
@@ -72,20 +61,20 @@ void* send_request(void *t) {
     if (response_result < 0) {
         perror("Send length failed");
     }
-    else {printf("%lu:", response_result);}
+//    else {printf("%lu:", response_result);}
     // Send string
     response_result = send(sock, message, string_length, 0);
     if (response_result< 0) {
         perror("Send string failed");
     }
-    else {printf("%ld\n", response_result);}
+//    else {printf("%ld\n", response_result);}
     
     ssize_t receive_size;
     // Receive string length
     receive_size = recv(sock, &network_byte_order, sizeof(uint32_t), 0);
     // Receive size must be same as sizeof(uint32_t) = 4
     if (receive_size != sizeof(uint32_t)) {
-        printf("string length error\n");
+        perror("string length error");
     }
     
     char *response= (char *)malloc(sizeof(char) * string_length);
@@ -93,7 +82,7 @@ void* send_request(void *t) {
     if (receive_size == string_length) {
         printf("Server: %s\n", response);
     } else {
-        printf("string length error\n");
+        perror("string length error\n");
     }
     free(response);
     free(message);
@@ -116,13 +105,13 @@ int main(int argc , char *argv[])
 //    printf("Socket created\n");
     
     // Set address
-//    server.sin_addr.s_addr = inet_addr(getenv("SERVER_ADDRESS"));
-//    server.sin_family = AF_INET;
-//    server.sin_port = htons(atoi(getenv("SERVER_PORT")));
-    
-    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+    server.sin_addr.s_addr = inet_addr(getenv("SERVER_ADDRESS"));
     server.sin_family = AF_INET;
-    server.sin_port = htons( 15000 );
+    server.sin_port = htons(atoi(getenv("SERVER_PORT")));
+    
+//    server.sin_addr.s_addr = inet_addr("127.0.0.1");
+//    server.sin_family = AF_INET;
+//    server.sin_port = htons( 15000 );
     
     // Connect to remote server
     if (connect(sock, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) == -1) {
