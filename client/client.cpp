@@ -10,12 +10,30 @@
 #include <arpa/inet.h>
 #include <time.h>
 #include <iostream>
-#include <vector>
+//#include <vector>
+#include <fcntl.h>
 
 struct timeval should_fire_time = timeval();
 pthread_mutex_t mutex;
 
 static int sock;
+
+void setnonblocking(int sock)
+{
+	int opts;
+    
+	opts = fcntl(sock,F_GETFL);
+	if (opts < 0) {
+		perror("fcntl(F_GETFL)");
+		exit(EXIT_FAILURE);
+	}
+	opts = (opts | O_NONBLOCK);
+	if (fcntl(sock,F_SETFL,opts) < 0) {
+		perror("fcntl(F_SETFL)");
+		exit(EXIT_FAILURE);
+	}
+	return;
+}
 
 void* send_request(void *t) {
     char *message = (char *)t;
@@ -45,10 +63,22 @@ void* send_request(void *t) {
     // Prepare for the string length
     uint32_t string_length = (uint32_t)(strlen(message) + 1);
     uint32_t network_byte_order = htonl(string_length);
+    
+    printf("%u:%s\n", string_length, message);
+    
+    long response_result;
     // Send string length
-    send(sock, &network_byte_order, sizeof(uint32_t), 0);
+    response_result = send(sock, &network_byte_order, sizeof(uint32_t), 0);
+    if (response_result < 0) {
+        perror("Send length failed");
+    }
+    else {printf("%lu:", response_result);}
     // Send string
-    send(sock, message, string_length, 0);
+    response_result = send(sock, message, string_length, 0);
+    if (response_result< 0) {
+        perror("Send string failed");
+    }
+    else {printf("%ld\n", response_result);}
     
     ssize_t receive_size;
     // Receive string length
@@ -58,41 +88,48 @@ void* send_request(void *t) {
         printf("string length error\n");
     }
     
-    char *server_reply = (char *)malloc(sizeof(char) * string_length);
-    receive_size = recv(sock, server_reply, string_length, 0);
+    char *response= (char *)malloc(sizeof(char) * string_length);
+    receive_size = recv(sock, response, string_length, 0);
     if (receive_size == string_length) {
-        printf("Server: %s\n", server_reply);
+        printf("Server: %s\n", response);
     } else {
         printf("string length error\n");
     }
-    free(server_reply);
+    free(response);
     free(message);
     pthread_exit((void*) 0);
 }
 
 int main(int argc , char *argv[])
 {
+//    printf("SERVER_ADDRESS: %s\n", getenv("SERVER_ADDRESS"));
+//    printf("SERVER_PORT: %s\n", getenv("SERVER_PORT"));
+    
     struct sockaddr_in server;
-    std::vector<pthread_t> thread_vc;
     
     // Create socket
     sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == -1) {
-        printf("Could not create socket\n");
+        perror("Could not create socket\n");
     }
-    printf("Socket created\n");
+//    setnonblocking(sock);
+//    printf("Socket created\n");
     
     // Set address
+//    server.sin_addr.s_addr = inet_addr(getenv("SERVER_ADDRESS"));
+//    server.sin_family = AF_INET;
+//    server.sin_port = htons(atoi(getenv("SERVER_PORT")));
+    
     server.sin_addr.s_addr = inet_addr("127.0.0.1");
     server.sin_family = AF_INET;
-    server.sin_port = htons(8888);
+    server.sin_port = htons( 15000 );
     
     // Connect to remote server
     if (connect(sock, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) == -1) {
         perror("connect failed. Error");
         exit(-1);
     }
-    printf("Connected\n");
+//    printf("Connected\n");
     
     pthread_mutex_init(&mutex, NULL);
     pthread_attr_t thread_attr;
