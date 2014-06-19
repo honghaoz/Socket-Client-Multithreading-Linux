@@ -12,23 +12,19 @@
 #include <iostream>
 #include <vector>
 
-#define MAX_BUFFER_SIZE 2000
-
-//static int thread_seq = 0;
-struct timeval should_fire_time = timeval();// (struct timeval){0};
+struct timeval should_fire_time = timeval();
 pthread_mutex_t mutex;
 
 static int sock;
 
 void* send_request(void *t) {
     char *message = (char *)t;
-    ssize_t receive_size;
-    char server_reply[MAX_BUFFER_SIZE];
-    
-    // get current time
+    // Schedule task with 2 seconds' delay
+    // Get current time
     struct timeval now, result;
     gettimeofday(&now, NULL);
     timersub(&now, &should_fire_time, &result);
+    
     // If the current time is after should_fire_time, fire imediately
     if (result.tv_sec > 0 || (result.tv_sec == 0 && result.tv_usec > 0)) {
         // Set the should_fire_time to be next 2 seconds
@@ -46,27 +42,26 @@ void* send_request(void *t) {
         usleep((int)result.tv_sec * 1000 * 1000 + result.tv_usec);
     }
     
-    send(sock, message, strlen(message) + 1, 0);
-    if((receive_size = recv(sock, server_reply, MAX_BUFFER_SIZE, 0)) == -1) {
-        printf("recv failed\n");
+    // Prepare for the string length
+    uint32_t string_length = (uint32_t)(strlen(message) + 1);
+    uint32_t network_byte_order = htonl(string_length);
+    // Send string length
+    send(sock, &network_byte_order, sizeof(uint32_t), 0);
+    // Send string
+    send(sock, message, string_length, 0);
+    
+    ssize_t receive_size;
+    char *server_reply = (char *)malloc(sizeof(char) * string_length);
+    receive_size = recv(sock, server_reply, string_length, 0);
+    if (receive_size == string_length) {
+        printf("Server: %s\n", server_reply);
+    } else {
+        printf("string length error\n");
     }
-    printf("Server: %s\n", server_reply);
+    free(server_reply);
     free(message);
     pthread_exit((void*) 0);
 }
-
-//void* send_request1(void *t) {
-//    char *message = (char *)t;
-//    printf("%zu:%s\n", strlen(message), message);
-//    send(sock, message, strlen(message) + 1, 0);
-//    ssize_t receive_size;
-//    char server_reply[MAX_BUFFER_SIZE];
-//    if((receive_size = recv(sock, server_reply, MAX_BUFFER_SIZE, 0)) == -1) {
-//        printf("recv failed\n");
-//    }
-//    printf("Server: %s\n", server_reply);
-//    pthread_exit((void*) 0);
-//}
 
 int main(int argc , char *argv[])
 {
