@@ -51,6 +51,13 @@ void* send_request(void *t) {
     send(sock, message, string_length, 0);
     
     ssize_t receive_size;
+    // Receive string length
+    receive_size = recv(sock, &network_byte_order, sizeof(uint32_t), 0);
+    // Receive size must be same as sizeof(uint32_t) = 4
+    if (receive_size != sizeof(uint32_t)) {
+        printf("string length error\n");
+    }
+    
     char *server_reply = (char *)malloc(sizeof(char) * string_length);
     receive_size = recv(sock, server_reply, string_length, 0);
     if (receive_size == string_length) {
