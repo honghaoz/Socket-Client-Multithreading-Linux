@@ -3,7 +3,6 @@
 //  Client for title-case
 //
 //  Created by Zhang Honghao on 6/17/14.
-//  CS 454(654) A2
 //
 #include <stdio.h>
 #include <stdlib.h>
